@@ -1,10 +1,13 @@
 """Discovered peers registry, persisted to peers.json."""
 import json
 import os
+import threading
 import time
 from typing import Dict, List, Optional
 
 from claude_mesh import paths
+
+_LOCK = threading.Lock()
 
 OFFLINE_AFTER_SECONDS = 90
 
@@ -30,9 +33,10 @@ def _write(data: Dict[str, dict]) -> None:
 def record(peer_id: str, ip: str, port: int, ts: Optional[int] = None) -> None:
     if ts is None:
         ts = int(time.time())
-    data = _read()
-    data[peer_id] = {"ip": ip, "port": port, "last_seen": ts}
-    _write(data)
+    with _LOCK:
+        data = _read()
+        data[peer_id] = {"ip": ip, "port": port, "last_seen": ts}
+        _write(data)
 
 
 def list_all() -> List[dict]:
