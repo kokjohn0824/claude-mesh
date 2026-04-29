@@ -20,19 +20,25 @@ best window environment (tmux preferred), and starts the listener daemon.
 
 ## Common operations
 
+The CLI is `python3 -m claude_mesh.client`. The skill directory must be on
+`PYTHONPATH` for the import to resolve, so prefix every CLI invocation with
+`PYTHONPATH=$HOME/.claude/skills/claude-mesh`:
+
 - List online peers:
 
-      python3 -m claude_mesh.client peers
+      PYTHONPATH=$HOME/.claude/skills/claude-mesh python3 -m claude_mesh.client peers
 
 - Send a new task to a peer:
 
-      python3 -m claude_mesh.client send <peer-id> "<prompt>"
+      PYTHONPATH=$HOME/.claude/skills/claude-mesh python3 -m claude_mesh.client send <peer-id> "<prompt>"
 
   Prints a `conversation_id` you'll use to continue the dialogue.
 
 - Continue an existing conversation:
 
-      python3 -m claude_mesh.client continue <conv-id> "<prompt>"
+      PYTHONPATH=$HOME/.claude/skills/claude-mesh python3 -m claude_mesh.client continue <conv-id> "<prompt>"
+
+Replies arrive asynchronously and are appended to `~/.claude/mesh/inbox.log`.
 
 When the remote Claude needs human input, it emits the sentinel
 `<<NEEDS_HUMAN: <reason>>>` in its reply. The remote machine's listener
