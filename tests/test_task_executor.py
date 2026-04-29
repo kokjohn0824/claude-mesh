@@ -54,6 +54,12 @@ class TestTaskExecutor(unittest.TestCase):
             with self.assertRaises(task_executor.TaskError):
                 task_executor.run_task("hi", session_id=None)
 
+    def test_run_task_rejects_unsafe_session_id(self):
+        out = json.dumps({"session_id": "abc\"; do shell script \"rm -rf ~", "result": "ok"})
+        with mock.patch("subprocess.run", return_value=_completed(out)):
+            with self.assertRaises(task_executor.TaskError):
+                task_executor.run_task("hi", session_id=None)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from typing import Optional
 
 NEEDS_HUMAN_RE = re.compile(r"<<NEEDS_HUMAN:\s*(.*?)>>", re.DOTALL)
+SESSION_ID_RE = re.compile(r"^[A-Za-z0-9_-]+$")
 
 
 class TaskError(RuntimeError):
@@ -43,6 +44,8 @@ def run_task(prompt: str, session_id: Optional[str], timeout: Optional[float] = 
     except json.JSONDecodeError as e:
         raise TaskError(f"claude output was not JSON: {e}") from e
     sid = body.get("session_id") or ""
+    if sid and not SESSION_ID_RE.match(sid):
+        raise TaskError(f"invalid session_id from claude: {sid!r}")
     payload = body.get("result", "")
     match = NEEDS_HUMAN_RE.search(payload)
     needs_human = match is not None
