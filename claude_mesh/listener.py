@@ -25,11 +25,13 @@ class Listener:
         local_ip: str,
         http_port: int,
         terminal_env: str,
+        default_peer_port: int = 7432,
     ):
         self.machine_id = machine_id
         self.local_ip = local_ip
         self.http_port = http_port
         self.terminal_env = terminal_env
+        self.default_peer_port = default_peer_port
         self._executor = ThreadPoolExecutor(max_workers=TASK_WORKERS, thread_name_prefix="mesh-task")
         self._inflight = 0
         self._inflight_lock = threading.Lock()
@@ -56,7 +58,11 @@ class Listener:
         _append_inbox(f"[{int(time.time())}] {msg.type} from {msg.from_id}: {msg.payload[:200]}")
         if msg.type == "task":
             self._inc_inflight()
-            self._executor.submit(self._handle_task, msg)
+            try:
+                self._executor.submit(self._handle_task, msg)
+            except RuntimeError:
+                self._dec_inflight()
+                raise
             return {"accepted": True}
         if msg.type == "reply":
             return {"accepted": True}
@@ -92,9 +98,12 @@ class Listener:
 
     def _post_reply(self, original: protocol.Message, payload: str, session_id: Optional[str], needs_human: bool) -> None:
         peer = peer_registry.get(original.from_id)
-        if peer is None:
-            _append_inbox(f"[mesh] cannot reply to unknown peer {original.from_id}")
-            return
+        if peer is not None:
+            ip, port = peer["ip"], peer["port"]
+        else:
+            ip = original.from_ip
+            port = self.default_peer_port
+            _append_inbox(f"[mesh] peer {original.from_id} not in registry; replying to envelope ip {ip}:{port}")
         reply = protocol.new_message(
             from_id=self.machine_id,
             from_ip=self.local_ip,
@@ -105,7 +114,7 @@ class Listener:
             needs_human=needs_human,
         )
         try:
-            http_client.send_message(peer["ip"], peer["port"], reply, timeout=10.0)
+            http_client.send_message(ip, port, reply, timeout=10.0)
         except http_client.SendError as e:
             _append_inbox(f"[mesh] send_reply failed: {e}")
 
@@ -134,6 +143,7 @@ def serve_forever() -> None:
         local_ip=local_ip,
         http_port=cfg["port"],
         terminal_env=env,
+        default_peer_port=cfg["port"],
     )
 
     server = http_server.start("0.0.0.0", cfg["port"], listener_inst.handle_message)

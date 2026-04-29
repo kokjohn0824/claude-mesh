@@ -36,6 +36,7 @@ class TestListener(unittest.TestCase):
             local_ip="192.168.1.11",
             http_port=7432,
             terminal_env="tmux",
+            default_peer_port=7432,
         )
         defaults.update(kwargs)
         return listener.Listener(**defaults)
@@ -114,10 +115,27 @@ class TestListener(unittest.TestCase):
             session_id="s", payload="ok", needs_human=False, escalation_reason=None,
         )
         with mock.patch.object(listener.task_executor, "run_task", return_value=result), \
-             mock.patch.object(listener.http_client, "send_message", side_effect=listener.http_client.SendError("nope")):
+             mock.patch.object(listener.http_client, "send_message"):
             # Should not raise.
             l.handle_message(msg)
             l.wait_idle(timeout=2.0)
+
+    def test_unknown_peer_falls_back_to_envelope_ip(self):
+        """When a peer is not yet in the registry, reply is sent to from_ip and default_peer_port."""
+        l = self._make_listener(default_peer_port=7432)
+        msg = _make_msg(from_id="ghost", from_ip="10.0.0.99")
+        result = task_executor.TaskResult(
+            session_id="s", payload="ok", needs_human=False, escalation_reason=None,
+        )
+        with mock.patch.object(listener.task_executor, "run_task", return_value=result), \
+             mock.patch.object(listener.http_client, "send_message") as send:
+            l.handle_message(msg)
+            l.wait_idle(timeout=2.0)
+        send.assert_called_once()
+        ip, port, sent_msg = send.call_args.args[:3]
+        self.assertEqual(ip, "10.0.0.99")
+        self.assertEqual(port, 7432)
+        self.assertEqual(sent_msg.type, "reply")
 
 
 if __name__ == "__main__":
