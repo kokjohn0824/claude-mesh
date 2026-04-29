@@ -24,10 +24,11 @@ def _read() -> Dict[str, dict]:
 
 def _write(data: Dict[str, dict]) -> None:
     paths.ensure_mesh_dir()
-    tmp = paths.peers_file() + ".tmp"
+    target = paths.peers_file()
+    tmp = f"{target}.{os.getpid()}.tmp"
     with open(tmp, "w") as f:
         json.dump(data, f, indent=2)
-    os.replace(tmp, paths.peers_file())
+    os.replace(tmp, target)
 
 
 def record(peer_id: str, ip: str, port: int, ts: Optional[int] = None) -> None:

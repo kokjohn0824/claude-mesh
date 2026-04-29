@@ -22,10 +22,11 @@ def _read() -> dict:
 
 def _write(data: dict) -> None:
     paths.ensure_mesh_dir()
-    tmp = paths.conv_registry_file() + ".tmp"
+    target = paths.conv_registry_file()
+    tmp = f"{target}.{os.getpid()}.tmp"
     with open(tmp, "w") as f:
         json.dump(data, f, indent=2)
-    os.replace(tmp, paths.conv_registry_file())
+    os.replace(tmp, target)
 
 
 def set_conv(conv_id: str, peer_id: str, session_id: Optional[str], _now: Optional[int] = None) -> None:
